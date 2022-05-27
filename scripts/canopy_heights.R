@@ -1,0 +1,57 @@
+# calculate tree heights
+
+library(lidR)
+library(lidRviewer)
+library(sf)
+set_lidr_threads(6)
+
+# plot <- read_sf('../../research/fieldsites/fortress/fortress_forest_plot.shp') |> 
+#   dplyr::filter(id == 1) |> 
+#   st_transform(st_crs(32611))
+
+# bbox <- st_bbox(plot) 
+
+# custom area in non wind affected zone
+bbox <- c(626976.415, 5631975.953, 627012.022, 5632022.681)
+
+fltr <- paste("-drop_z_below 2075 -drop_z_above 2100 -keep_xy", paste(bbox, collapse = " "))
+# fltr <- paste("-drop_z_below 2075 -drop_z_above 2100 -keep_xy 626963.9 5632008.2 627009.1 5632027.8")
+
+las <- readLAS('data/22_126_FT.las', select = "xyzrn", filter = fltr)
+plot(las)
+
+# scalar. The distance to the simulated cloth to classify a point cloud into ground and non-ground. The default is 0.5.
+ct <- 0.2
+# scalar. The distance between particles in the cloth. This is usually set to the average distance of the points in the point cloud. The default value is 0.5.
+cr <- 0.5
+
+algo <- csf(sloop_smooth = F, class_threshold = ct, cloth_resolution = cr, rigidness = 1)
+las <- classify_ground(las, algo)
+las <- normalize_height(las, tin())
+
+plot(las, color = 'Classification')
+
+# ttops <- locate_trees(las, lmf(ws = 5))
+# 
+# saveRDS(ttops, 'data/forest_plot_ttops.rds')
+
+# plot(chm, col = height.colors(50))
+
+chm <- rasterize_canopy(las, 0.25, pitfree(subcircle = 0.2))
+
+plot(chm)
+
+ttops <- locate_trees(chm, lmf(ws = 3))
+ttops$Z
+
+range(ttops$Z)
+
+col <- height.colors(25)
+
+plot(chm, col = col)
+
+plot(sf::st_geometry(ttops), add = TRUE, pch = 3)
+
+
+x <- plot(las, bg = "white", size = 4)
+add_treetops3d(x, ttops,)
